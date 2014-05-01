@@ -1,8 +1,21 @@
 #!/bin/sh
+#------------------------------------------------------------------------------
+# CSU - SSH deployment script
+# Copyright (c) Jean-Marie RENOUARD 2014 - LightPath
+# Contact : Jean-Marie Renouard <jmrenouard at gmail.com>
+#
+# This program is open source, licensed under the Artistic Licence v2.0.
+#
+# Artistic Licence 2.0
+# Everyone is permitted to copy and distribute verbatim copies of 
+# this license document, but changing it is not allowed.
+#------------------------------------------------------------------------------
 print_usage() {
-        echo -e "`basename $0` chaine_de_connexion scriptLocalAexecuter"
-        echo -e "Execution à distance d'un script shell local sur un serveur"
-        echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+	echo -e "`basename $0` login public_key_file file_with_list_of_servers"
+print_usage() {
+        echo -e "`basename $0` ssh_options script"
+        echo -e "Remote execute script on server by SSH"
+        echo -e "Use ssh keysto automate such operations"
         exit 0
 }
 

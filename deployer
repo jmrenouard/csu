@@ -1,0 +1,164 @@
+#!/usr/bin/perl
+#------------------------------------------------------------------------------
+# CSU - SSH deployment script
+# Copyright (c) Jean-Marie RENOUARD 2014 - LightPath
+# Contact : Jean-Marie Renouard <jmrenouard at gmail.com>
+#
+# This program is open source, licensed under the Artistic Licence v2.0.
+#
+# Artistic Licence 2.0
+# Everyone is permitted to copy and distribute verbatim copies of 
+# this license document, but changing it is not allowed.
+#------------------------------------------------------------------------------
+print_usage() {
+	echo -e "`basename $0` login public_key_file file_with_list_of_servers"
+
+use warnings;
+use strict;
+use JSON;
+use YAML qw/LoadFile/;
+use Data::Dumper;
+use Term::ANSIColor;
+use Cwd 'abs_path';
+use File::Basename;
+use IPC::Run3;
+
+$|++;
+
+my $myPath=dirname abs_path($0);
+my $defaultConfig=$myPath."/deployer.yml";
+my $conf;
+my $lbar=80;
+
+sub sep1 {
+    print "\n", color 'yellow';
+    print "#" x $lbar, "\n";
+    print color 'reset';
+}
+
+sub sep2 {
+    print "\n", color 'yellow';
+    print "-" x $lbar, "\n";
+    print color 'reset';
+}
+
+sub printHeader {
+    sep1;
+    print color 'yellow';
+    print "#\t". join "\n#\t", @_;  
+    sep1;
+}
+
+sub info {
+    print "\n", color 'yellow';
+    print join "\n\t", @_;  
+    print color 'reset';
+}
+
+sub printFooter {
+    printHeader @_; 
+}
+
+sub readConfig {
+    my $conf;
+    my $fConf=shift;
+    open my $fh, '<', $fConf 
+        or die "can't open config file: $!";
+    $conf=LoadFile($fh);
+    close $fh;
+    return $conf;
+}
+
+sub run_cmd {
+	my ($cmd, $in, $out, $err)=@_;
+	print Dumper $cmd;
+	print Dumper $in;
+	
+	run3 ($cmd, $in, \$out, \$err);
+    my $rc=$?;
+	print Dumper [ $out, $err, $rc ];
+	
+	return [ $out, $err, $rc ];
+
+}
+sub exec_script {
+    my $host=shift;
+    my $ssh_options=shift;
+    my $task=shift;
+
+	my $scr=$myPath."/".$task->{'command'};
+	open (FH, "< ".$scr) or die "Can't open ".$scr." for read: $!";
+	my @lines = <FH>;
+	close FH or die "Cannot close ".$scr.": $!";
+	
+	my $inter=shift @lines;
+	$inter =~ s/#!(.*)$/$1/;
+	$inter =~ s/\n$//;	
+	print Dumper $inter;
+	
+	my $scriptContent= join "\n", grep { /\S/ } @lines;
+	$scriptContent=~ s/^$//; 
+    my $cmd ="ssh $ssh_options $host '$inter'";
+	
+	return run_cmd ($cmd, \$scriptContent );
+}
+
+sub exec_command {
+    my $host=shift;
+    my $ssh_options=shift;
+    my $task=shift;
+    my $cmd ="ssh $ssh_options $host '". $task->{'command'}. "'";
+ 
+	return run_cmd ($cmd, \undef );
+}
+
+sub run {
+    my $conf=shift;
+    my %conf=%{$conf};
+
+    my $ssh_options=" -l ".$conf{"general"}{"user"};
+    $ssh_options.=" -i ".$conf{"general"}{"private_key"};
+    for my $task (@{$conf{'tasks'}}) {
+        for my $host (@{$conf{$task->{'target'}}}) {
+            next if (defined $task->{'disable'} and $task->{'disable'}==1);
+            
+			unless (defined($task->{'module'})) {
+			$task->{'module'}='command';
+			}
+            my $module=\&{"exec_".$task->{'module'}};
+            my @result=$module->($host, $ssh_options, $task);
+            display_result($task,$host, @result);
+        }
+    }
+}
+
+sub trim {
+	my $str=shift;
+	$str =~ s/^\s+|\s+$//g;
+	return $str;
+}
+sub display_result {
+	my $task=shift;
+	print "\n - Name: ",$task->{'name'}, " (".$task->{'description'}.")";
+	my $host=shift;
+	print "\n - Host: ",$host;
+	print "\n - Module: ",$task->{'module'};
+	print "\n - Command: ",$task->{'command'};
+	my $res=shift;
+	
+	print "\n - Result: ", trim shift @$res;
+	print "\n - Error: ", trim shift @$res;
+	print "\n - Code : ", trim shift @$res;
+	print "\n\n";
+}
+my $fConf;
+if ( $#ARGV >= 0 and -f $ARGV[0] ) {
+    $fConf=$ARGV[0];
+} else {
+    $fConf=$defaultConfig;
+}
+$conf=readConfig $fConf;
+
+#printHeader "Start running: $fConf";
+run $conf;
+#printFooter "End running  : $fConf";

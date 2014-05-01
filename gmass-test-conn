@@ -1,8 +1,21 @@
 #/bin/sh -x
+#------------------------------------------------------------------------------
+# CSU - SSH deployment script
+# Copyright (c) Jean-Marie RENOUARD 2014 - LightPath
+# Contact : Jean-Marie Renouard <jmrenouard at gmail.com>
+#
+# This program is open source, licensed under the Artistic Licence v2.0.
+#
+# Artistic Licence 2.0
+# Everyone is permitted to copy and distribute verbatim copies of 
+# this license document, but changing it is not allowed.
+#------------------------------------------------------------------------------
+print_usage() {
+	echo -e "`basename $0` login public_key_file file_with_list_of_servers"
 
 print_usage() {
-    echo -e "`basename $0` fichierListeServeur"
-	echo -e "test la connectivite via SSH sur un ensemble de serveur"
+    echo -e "`basename $0` server_list_file"
+	echo -e "test SSH access on  a list of server"
 	exit 0
 }
 
