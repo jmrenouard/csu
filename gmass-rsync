@@ -1,0 +1,169 @@
+#/bin/sh -x
+
+: ${DIALOG=dialog}
+
+print_usage() {
+    echo -e "`basename $0` login fichier_ou_repertoire nom_de_destination fichierListeServeur"
+	echo -e "Copie rsync classique sur un ensemble de serveur"
+	echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+	exit 0
+}
+
+function getUser {
+: ${DIALOG=dialog}
+
+exec 3>&1
+choice=`$DIALOG --nocancel --title "SSH USER" --clear --inputbox "The username to connect into ssh. \n\n Try entering your name below:" 16 51 2>&1 1>&3`
+retval=$?
+exec 3>&-
+
+case $retval in
+  0)
+    echo "Input string is $choice"
+    USER=$choice
+    ;;
+  1)
+    echo "Cancel pressed.";;
+  255)
+    if test -s $tempfile ; then
+      cat $tempfile
+    else
+      echo "ESC pressed."
+    fi
+    ;;
+esac
+}
+function getRemoteFile {
+: ${DIALOG=dialog}
+
+exec 3>&1
+choice=`$DIALOG --nocancel \
+        --title "REMOTE LOCATION" --clear \
+        --inputbox "The remote location on each server : \n\n\
+	Try entering your path below:" 16 51 2>&1 1>&3`
+retval=$?
+exec 3>&-
+
+case $retval in
+  0)
+    echo "Input string is $choice"
+    REMOTE=$choice
+    ;;
+  1)
+    echo "Cancel pressed.";;
+  255)
+    if test -s $tempfile ; then
+      cat $tempfile
+    else
+      echo "ESC pressed."
+    fi
+    ;;
+esac
+}
+
+function getMachineList {
+: ${DIALOG=dialog}
+
+exec 3>&1
+FILE=`$DIALOG --title "Please choose a server list file" --fselect $HOME/ 14 48 2>&1 1>&3`
+code=$?
+exec 3>&-
+
+case $code in
+        0)
+                echo "\"$FILE\" chosen"
+		SERVER_LIST_FILE=$FILE;;
+        1)
+                echo "Cancel pressed.";;
+        255)
+                echo "Box closed.";;
+esac
+}
+function getLocalFile {
+: ${DIALOG=dialog}
+
+exec 3>&1
+FILE=`$DIALOG --title "Please choose a file to send" --fselect $HOME/ 14 48 2>&1 1>&3`
+code=$?
+exec 3>&-
+
+case $code in
+        0)
+                echo "\"$FILE\" chosen"
+		RESOURCE=$FILE;;
+        1)
+                echo "Cancel pressed.";;
+        255)
+                echo "Box closed.";;
+esac
+}
+
+
+[ "$1" == "-h" ] && print_usage
+[ "$1" == "--help" ] && print_usage
+
+
+if [ $# == 4 ];then
+USER=$1
+RESOURCE=$2
+DESTINATION=$3
+SERVER_LIST_FILE=$4
+else
+	getUser
+	getMachineList
+	getLocalFile
+	getRemoteFile
+fi
+
+if [ -f $SERVER_LIST_FILE ]
+then
+LG=`cat $SERVER_LIST_FILE|wc -l`
+
+tempfile=`tempfile 2>/dev/null` || tempfile=/tmp/test$$
+trap "rm -f $tempfile" 0 1 2 5 15
+
+LIST_SERVER=""
+for server in `cat $SERVER_LIST_FILE`; do
+LIST_SERVER="$LIST_SERVER  $server '' on "
+done
+
+eval $(echo -en "$DIALOG --backtitle 'MASS RSYNC' --title 'MASS RSYNC' --checklist 'Copy \n$RESOURCE => $DESTINATION on the following servers :' 50 70 45 $LIST_SERVER 2> $tempfile")
+
+retval=$?
+
+choice=`cat $tempfile`
+case $retval in
+	0)
+		i=1
+		exec 3<&0
+		
+		(
+		for server in `echo $choice`
+		do
+ 			
+			let PCT=i*100/$LG
+			let i=i+1
+
+			n=$(echo $server| sed -e 's/\"//g')
+			echo "XXX"
+			echo "$n"
+			echo "XXX"
+ 			echo $PCT
+			[ `nc -w 1 $n 22 1>/dev/null` ] && rsync -avz -e ssh $RESOURCE $USER@$n:$DESTINATION
+		done
+ 		) | $DIALOG --title "Copy on" --input-fd 3 --gauge "Copy utility" 0 0 0
+
+		exec 3<&-
+		reset
+		;;
+	1)
+		echo "Cancel pressed.";;
+	255)
+		echo "ESC pressed.";;
+
+	*)
+		echo "Unexpected code $retval";;
+esac
+
+fi
+

@@ -1,0 +1,55 @@
+#/bin/sh -x
+
+print_usage() {
+    echo -e "`basename $0` fichierListeServeur"
+	echo -e "test la connectivite via SSH sur un ensemble de serveur"
+	exit 0
+}
+
+[ $# -eq "1" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+SERVER_LIST_FILE=$1
+: ${DIALOG=dialog}
+
+if [ -f $SERVER_LIST_FILE ]
+then
+LG=`cat $SERVER_LIST_FILE|wc -l`
+
+tempfile=`tempfile 2>/dev/null` || tempfile=/tmp/test$$
+trap "rm -f $tempfile" 0 1 2 5 15
+
+LIST_SERVER=""
+for server in `cat $SERVER_LIST_FILE`; do
+LIST_SERVER="$LIST_SERVER  $server '' on "
+done
+
+eval $(echo -en "$DIALOG --backtitle 'MASS RSYNC' --title 'MASS RSYNC' --checklist 'Copy \n$RESOURCE => $DESTINATION on the following servers :' 50 70 45 $LIST_SERVER 2> $tempfile")
+
+retval=$?
+
+choice=`cat $tempfile`
+case $retval in
+	0)
+		i=1
+		for server in `echo $choice`
+		do
+			n=$(echo $server| sed -e 's/\"//g')
+			echo -ne "\n$i° $n"
+			if [ `nc -w 1 $n 22 2>/dev/null` ]; then
+				echo -ne "[OK]"
+			else
+				echo -ne "[FAIL]"
+			fi
+			let i=$i+1
+		done
+		;;
+	1)
+		echo "Cancel pressed.";;
+	255)
+		echo "ESC pressed.";;
+
+	*)
+		echo "Unexpected code $retval";;
+esac
+
+fi

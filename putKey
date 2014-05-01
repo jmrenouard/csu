@@ -1,0 +1,14 @@
+#!/bin/sh
+print_usage() {
+        echo -e "`basename $0` chaine_de_connexion"
+        echo -e "Depot de la clé publique et connexion au serveur"
+        echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+        exit 0
+}
+
+[ $# -eq "1" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+
+[ -e "$HOME/.ssh/id_rsa.pub" ] && ssh-copy-id -i $HOME/.ssh/id_rsa.pub $1
+[ -e "$HOME/.ssh/id_dsa.pub" ] && ssh-copy-id -i $HOME/.ssh/id_dsa.pub $1
+ssh $1

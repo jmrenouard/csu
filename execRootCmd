@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+use strict;
+use Expect;
+
+# ARGV 1: Connect SSH 
+# ARGV 2: user passwd
+# ARGV 3: admin login
+# ARGV 4: admin passwd
+# ARGV 5: cmd
+
+my $timeout=1;
+
+my $command="ssh ".$ARGV[0];
+
+print " => $command\n";
+
+my $exp = Expect->spawn($command) or die "Cannot spawn $command: $!\n";
+$exp->raw_pty(1);
+
+LOGIN:
+$exp->expect($timeout,
+        [ 'ogin: $' => sub {
+                     $exp->send("luser\n");			
+                     exp_continue; }
+        ],
+	[ 'yes\/no\)\?\s*$' => sub {
+		      $exp->send("yes\n");
+		      goto LOGIN;
+		      }
+	],
+        [ 'assword:\s*$' => sub {
+                      $exp->send($ARGV[1]."\n");
+		      print "password send : ", $ARGV[1];
+                      exp_continue;    }
+        ],
+        '-re', qr'[#>:] $'
+);
+	
+$exp->send ("su - ".$ARGV[2]."\n");
+$exp->expect($timeout,
+        [ 'assword:\s*$' => sub {
+		      print "password send : ", $ARGV[3];
+                      $exp->send($ARGV[3]."\n");
+                      exp_continue;    }
+        ],
+        [ 'Mot\s*de\s*passe\s*:\s*$' => sub {
+		      print "password send : ", $ARGV[3];
+                      $exp->send($ARGV[3]."\n");
+                      exp_continue;    }
+        ],
+        '-re', qr'[#>:] $'
+);
+
+$exp->send ($ARGV[4]."\n") if defined($ARGV[4]);
+$exp->send ("echo -e '\n%wheel  ALL=(ALL)       NOPASSWD: ALL' >> /etc/sudoers\n") unless defined($ARGV[4]);
+$exp->send ("exit\nexit\n");
+$exp->soft_close();

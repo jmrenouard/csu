@@ -1,0 +1,13 @@
+#!/bin/sh
+print_usage() {
+        echo -e "`basename $0` chaine_de_connexion scriptLocalAexecuter"
+        echo -e "Execution à distance d'un script shell local sur un serveur"
+        echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+        exit 0
+}
+
+[ $# -eq "2" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+INTERPRETER=$(head -n 1 $2 | sed -e 's/#!//')
+
+cat $2 | grep -v "#" | ssh -t $1 $INTERPRETER

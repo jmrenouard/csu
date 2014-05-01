@@ -1,0 +1,23 @@
+#/bin/sh -x
+print_usage() {
+        echo -e "`basename $0` login fichier_ou_repertoire nom_de_destination fichierListeServeur"
+        echo -e "Copie rsync classique sur un ensemble de serveur"
+        echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+        exit 0
+}
+
+[ $# -eq "4" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+USER=$1
+RESOURCE=$2
+DESTINATION=$3
+SERVER_LIST_FILE=$4
+
+if [ -f $SERVER_LIST_FILE ]
+then
+	for server in `cat $SERVER_LIST_FILE`
+	do
+		echo "serveur  : $server"
+		rsync -azv -e ssh $RESOURCE $USER@$server:$DESTINATION
+	done
+fi

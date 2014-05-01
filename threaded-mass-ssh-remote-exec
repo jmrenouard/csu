@@ -1,0 +1,41 @@
+#!/bin/bash
+
+USER=${1:-"adcompte"}
+LISTE_MACHINE=${2:-"./liste.txt"}
+
+#       CMD=${3:-"/bin/ls -la"}
+SCRIPT=${3:-"./exemple.sh"}
+CLEAN_LOG=${4:-"N"}
+SILENT=${5:-"N"}
+[ -f "$LISTE_MACHINE" ] || echo "$LISTE_MACHINE n'existe pas ..."
+[ -f "$LISTE_MACHINE" ] || exit 1
+[ -f "$SCRIPT" ] || echo "$SCRIPT n'existe pas ..."
+[ -f "$SCRIPT" ] || exit 1
+
+INTERPRETER=` head -n 1 $SCRIPT | cut -d'!' -f 2`
+
+#for LSCMD in `cat exemple.sh`; do
+
+for SERVER in `cat $LISTE_MACHINE`; do
+LOG_FILE="/tmp/cmd_$SERVER.log"
+LOG_FILE_ERR="/tmp/cmd_$SERVER.err"
+[ "$CLEAN_LOG" == "Y" ] && rm -f $LOG_FILE $LOG_FILE_ERR && echo "$LOG_FILE and $LOG_FILE_ERR erased at `date`"
+(
+ [ "$SILENT" == "Y" ] || echo "#############################################">> $LOG_FILE
+ [ "$SILENT" == "Y" ] || echo "$USER@$SERVER => $CMD at `date`">> $LOG_FILE
+ [ "$SILENT" == "Y" ] || echo "#############################################" >> $LOG_FILE
+ [ "$SILENT" == "Y" ] || echo "#############################################">> $LOG_FILE_ERR
+ [ "$SILENT" == "Y" ] || echo "$USER@$SERVER => $CMD at `date`">> $LOG_FILE_ERR
+ [ "$SILENT" == "Y" ] || echo "#############################################" >> $LOG_FILE_ERR
+
+ grep -ve "^#" $SCRIPT | ssh $USER@$SERVER "$INTERPRETER">> $LOG_FILE 2>> $LOG_FILE_ERR
+
+ [ "$SILENT" == "Y" ] || echo "Terminated at `date`">> $LOG_FILE
+ [ "$SILENT" == "Y" ] || echo "#############################################">> $LOG_FILE
+ [ "$SILENT" == "Y" ] || echo "Terminated at `date`">> $LOG_FILE_ERR
+ [ "$SILENT" == "Y" ] || echo "#############################################">> $LOG_FILE_ERR
+
+ echo "$SERVER => $CMD  terminated at `date`"
+ )&
+done
+exit 0

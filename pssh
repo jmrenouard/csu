@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+use strict;
+
+use Expect;
+
+my $timeout=1;
+
+my $command="ssh ".$ARGV[0]." ".$ARGV[2];
+
+#print " => $command\n";
+
+my $exp = Expect->spawn($command) or die "Cannot spawn $command: $!\n";
+$exp->raw_pty(1);
+
+LOGIN:
+$exp->expect($timeout,
+        [ 'ogin: $' => sub {
+                     $exp->send("luser\n");			
+                     exp_continue; }
+        ],
+	[ 'yes\/no\)\?\s*$' => sub {
+		      $exp->send("yes\n");
+		      goto LOGIN;
+		      }
+	],
+        [ 'assword:\s*$' => sub {
+                      $exp->send($ARGV[1]."\n");
+			#print "password send : ", $ARGV[1];
+                      exp_continue; }
+        ],
+        '-re', qr'[#>:] $'
+);
+$exp->soft_close();

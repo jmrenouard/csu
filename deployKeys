@@ -1,0 +1,22 @@
+#/bin/sh -x
+print_usage() {
+	echo -e "`basename $0` login public_key_file file_with_list_of_servers"
+	echo -e "Deploy automatically public key on a list of serveur"
+	echo -e "If you already got ssh ssh key access, you don't have to type password"
+	exit 0
+}
+
+[ $# -eq "3" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+USER=$1
+KEY=$2
+SERVER_LIST_FILE=$3
+
+if [ -f $KEY ] && [ -f $SERVER_LIST_FILE ]
+then
+	for server in `cat $SERVER_LIST_FILE`
+	do
+		echo "serveur  : $server"
+		ssh-copy-id -i $KEY $USER@$server
+	done
+fi

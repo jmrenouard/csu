@@ -1,0 +1,24 @@
+#/bin/sh -x
+print_usage() {
+        echo -e "`basename $0` login commande_a_executer fichierListeServeur"
+        echo -e "Execution à distance d'une commande sur un ensemble de serveur (depuis la liste)"
+        echo -e "Utilisation de la clé SSH et de SSH pour effectuer cette opération"
+        exit 0
+}
+
+[ $# -eq "3" ] && [ $1 != "-h" ] && [ $1 != "--help" ] || print_usage
+
+
+USER=${1:-"opj73was"}
+CMD=${2:-"true"}
+SERVER_LIST_FILE=${3:-"/dev/null"}
+
+if [ -f $SERVER_LIST_FILE ]
+then
+	for server in `cat $SERVER_LIST_FILE`
+	do
+		echo "serveur  : $server"
+		echo "command  : $CMD" 
+		ssh -t $USER@$server "$CMD"
+	done
+fi
