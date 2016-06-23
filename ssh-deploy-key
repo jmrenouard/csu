@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+# coding: utf8
+
+import pexpect,pprint
+import struct, fcntl, os, sys, signal
+class SshCopy:
+    def __init__(self, user, host=None, passwd=None, keyfile=None, port=22):
+        if host is not None:
+            self.pub_key = keyfile
+            self.priv_key = os.path.splitext(keyfile)[0]
+            self.user = user
+            self.host = host
+            self.passwd = passwd
+            self.port = port
+            self.verbose=True
+        else:
+            self.pub_key = options.key_file
+            self.priv_key = os.path.splitext(options.key_file)[0]
+            self.user = options.user
+            self.host = options.host
+            self.passwd = options.password
+            self.port = options.port
+            self.verbose=options.verbose
+
+    def sigwinch_passthrough (self, sig, data):
+        # Check for buggy platforms (see pexpect.setwinsize()).
+        if 'TIOCGWINSZ' in dir(termios):
+            TIOCGWINSZ = termios.TIOCGWINSZ
+        else:
+            TIOCGWINSZ = 1074295912 # assume
+        s = struct.pack ("HHHH", 0, 0, 0, 0)
+        a = struct.unpack ('HHHH', fcntl.ioctl(sys.stdout.fileno(), TIOCGWINSZ , s))
+        global global_pexpect_instance
+        global_pexpect_instance.setwinsize(a[0],a[1])
+
+    def generateSshKeys(self):
+        if os.path.isfile(self.pub_key):
+            print "%s exists !" % self.pub_key
+        else:
+            print "Generating %s SSH key file !" % self.pub_key
+            kgen=os.system('ssh-keygen -t rsa -N \'\' -f %s' % self.priv_key)
+        
+    def send(self):
+        self.generateSshKeys()
+        str_ssh = '/usr/bin/ssh-copy-id -i %s %s@%s -p %s' %(self.pub_key,self.user,self.host,self.port)
+        if self.verbose==True: print "CONNECTION: %s" % str_ssh
+        rc=0
+        ssh_newkey = 'Are you sure you want to continue connecting'
+        ssh_alreadyadded = 'All keys were skipped because they already exist'
+        p=pexpect.spawn(str_ssh)
+        i=p.expect([ssh_newkey, 'password:', ssh_alreadyadded, pexpect.EOF, pexpect.TIMEOUT], 1)
+        if i==0:
+            print "I say yes"
+            p.sendline('yes')
+            i=p.expect([ssh_newkey,'password:',pexpect.EOF])
+        if i==1:
+            print "I give password",
+            p.sendline(self.passwd)
+            p.sendline("\r")
+            sys.exit(p.expect([' added: 1', 'Permission denied' ,pexpect.EOF]))
+        
+        if i==2:
+            print "Keys already added... SHIP"
+            pass
+        elif i==3:
+            print "I either got key or connection timeout"
+            pass
+        elif i==4: #timeout
+            pass
+        global global_pexpect_instance
+        global_pexpect_instance = p
+        signal.signal(signal.SIGWINCH, self.sigwinch_passthrough)
+
+        try:
+            p.interact()
+        except:
+            sys.exit(1)
+        sys.exit(0)
+
+if __name__ == '__main__':
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option("-u", "--user", dest="user",
+                  help="SSH user [default: %default]", type="string", default="root", metavar="USER")
+    parser.add_option("-p", "--password", dest="password",
+                  help="SSH password", type="string", metavar="PASSWORD")
+    parser.add_option("-H", "--host", dest="host", default="localhost",
+                  help="SSH host [default: %default]", type="string", metavar="HOST or IP")
+    parser.add_option("-P", "--port", dest="port", default=22,
+                  help="SSH port [default: %default]", type="int", metavar="PORT")
+    parser.add_option("-f", "--file", dest="key_file",
+                  default=os.getenv('HOME') + '/.ssh/id_rsa.pub', help="SSH public key file[default: %default]", type="string", metavar="FILE")
+    parser.add_option("-q", "--quiet",
+                  action="store_false", dest="verbose", default=True,
+                  help="don't print status messages to stdout")
+    parser.add_option("-v", "--verbose",
+                  action="store_true", dest="verbose", default=True,
+                  help="print status messages to stdout")
+    (options, args) = parser.parse_args()
+    ssh=SshCopy(options)
+    ssh.send()
